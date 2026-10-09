@@ -1,0 +1,6 @@
+{
+  "name": "Sistema Financiero & Control de Gastos BCV",
+  "description": "Plataforma de gestión financiera personal y empresarial con reconversión automática a tasa BCV (Bs/$), control de ingresos, egresos, deudas y cuentas por cobrar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
