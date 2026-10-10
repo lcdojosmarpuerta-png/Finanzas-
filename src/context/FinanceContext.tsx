@@ -12,6 +12,7 @@ import {
   BackupFileStructure,
   RestoreResult,
   BackupSummary,
+  CloudSyncState,
 } from '../types/finance.ts';
 import { fetchLiveBCVRate } from '../services/bcvService.ts';
 
@@ -271,6 +272,13 @@ interface FinanceContextType {
   restoreFromBackup: (backupData: BackupFileStructure, mode: 'replace' | 'merge') => RestoreResult;
   isBackupModalOpen: boolean;
   setIsBackupModalOpen: (open: boolean) => void;
+  // Local Storage State (Compatibility)
+  cloudSyncState: CloudSyncState;
+  loginWithGoogleAction: () => Promise<void>;
+  logoutAction: () => Promise<void>;
+  forceSyncToCloudAction: () => Promise<{ success: boolean; message: string }>;
+  isCloudModalOpen: boolean;
+  setIsCloudModalOpen: (open: boolean) => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -386,6 +394,27 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isOfflineStatusModalOpen, setIsOfflineStatusModalOpen] = useState<boolean>(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
   const [lastSavedTimestamp, setLastSavedTimestamp] = useState<string>(() => new Date().toISOString());
+
+  // Local Storage State (All finances are 100% saved locally on device)
+  const [cloudSyncState] = useState<CloudSyncState>({
+    userId: null,
+    userEmail: null,
+    userName: null,
+    status: 'synced',
+    lastSyncedAt: new Date().toISOString(),
+    isSyncing: false,
+    errorMessage: null,
+  });
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
+
+  const loginWithGoogleAction = async () => {};
+  const logoutAction = async () => {};
+  const forceSyncToCloudAction = async (): Promise<{ success: boolean; message: string }> => {
+    return {
+      success: true,
+      message: 'Todos tus datos se guardan de forma local en tu dispositivo con máxima privacidad.',
+    };
+  };
 
   const effectiveIsOnline = isOnline && !isSimulatingOffline;
 
@@ -535,10 +564,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const setBcvRate = (rate: number) => {
     if (rate <= 0 || isNaN(rate)) return;
+    const now = new Date().toISOString();
+    const cleanRate = Number(rate.toFixed(4));
     setData((prev) => ({
       ...prev,
-      bcvRate: Number(rate.toFixed(4)),
-      lastBcvUpdate: new Date().toISOString(),
+      bcvRate: cleanRate,
+      lastBcvUpdate: now,
     }));
   };
 
@@ -551,7 +582,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     setIsSyncingBcv(true);
-    setBcvStatusMessage('Consultando tasa oficial del BCV en la red...');
+    setBcvStatusMessage('Consultando tasa oficial del BCV en línea...');
     try {
       const res = await fetchLiveBCVRate();
       setIsSyncingBcv(false);
@@ -663,9 +694,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProfile = (profileUpdate: Partial<UserProfile>) => {
+    const updated = { ...data.profile, ...profileUpdate };
     setData((prev) => ({
       ...prev,
-      profile: { ...prev.profile, ...profileUpdate },
+      profile: updated,
     }));
 
     setProfiles((prev) =>
@@ -741,22 +773,20 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const markIncomeAsDeposited = (id: string) => {
     setData((prev) => ({
       ...prev,
-      incomes: prev.incomes.map((i) =>
-        i.id === id
-          ? { ...i, status: 'depositado', depositedAt: new Date().toISOString() }
-          : i
-      ),
+      incomes: prev.incomes.map((i) => {
+        if (i.id !== id) return i;
+        return { ...i, status: 'depositado', depositedAt: new Date().toISOString() };
+      }),
     }));
   };
 
   const markIncomeAsPending = (id: string) => {
     setData((prev) => ({
       ...prev,
-      incomes: prev.incomes.map((i) =>
-        i.id === id
-          ? { ...i, status: 'pendiente', depositedAt: undefined }
-          : i
-      ),
+      incomes: prev.incomes.map((i) => {
+        if (i.id !== id) return i;
+        return { ...i, status: 'pendiente', depositedAt: undefined };
+      }),
     }));
   };
 
@@ -779,11 +809,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     const now = new Date().toISOString();
     setData((prev) => ({
       ...prev,
-      incomes: prev.incomes.map((i) =>
-        i.status === 'pendiente'
-          ? { ...i, status: 'depositado', depositedAt: i.depositedAt || now }
-          : i
-      ),
+      incomes: prev.incomes.map((i) => {
+        if (i.status === 'pendiente') {
+          return { ...i, status: 'depositado', depositedAt: i.depositedAt || now };
+        }
+        return i;
+      }),
     }));
   };
 
@@ -792,18 +823,22 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     const now = new Date().toISOString();
     setData((prev) => ({
       ...prev,
-      incomes: prev.incomes.map((i) =>
-        idSet.has(i.id) && i.status === 'pendiente'
-          ? { ...i, status: 'depositado', depositedAt: i.depositedAt || now }
-          : i
-      ),
+      incomes: prev.incomes.map((i) => {
+        if (idSet.has(i.id) && i.status === 'pendiente') {
+          return { ...i, status: 'depositado', depositedAt: i.depositedAt || now };
+        }
+        return i;
+      }),
     }));
   };
 
   const updateIncome = (id: string, updated: Partial<IncomeItem>) => {
     setData((prev) => ({
       ...prev,
-      incomes: prev.incomes.map((i) => (i.id === id ? { ...i, ...updated } : i)),
+      incomes: prev.incomes.map((i) => {
+        if (i.id !== id) return i;
+        return { ...i, ...updated };
+      }),
     }));
   };
 
@@ -855,18 +890,20 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const markExpenseAsPending = (id: string) => {
     setData((prev) => ({
       ...prev,
-      expenses: prev.expenses.map((e) =>
-        e.id === id ? { ...e, status: 'pendiente', paidAt: undefined } : e
-      ),
+      expenses: prev.expenses.map((e) => {
+        if (e.id !== id) return e;
+        return { ...e, status: 'pendiente', paidAt: undefined };
+      }),
     }));
   };
 
   const markExpenseAsPaid = (id: string) => {
     setData((prev) => ({
       ...prev,
-      expenses: prev.expenses.map((e) =>
-        e.id === id ? { ...e, status: 'pagado', paidAt: new Date().toISOString() } : e
-      ),
+      expenses: prev.expenses.map((e) => {
+        if (e.id !== id) return e;
+        return { ...e, status: 'pagado', paidAt: new Date().toISOString() };
+      }),
     }));
   };
 
@@ -899,7 +936,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const updateDebt = (id: string, updated: Partial<DebtItem>) => {
     setData((prev) => ({
       ...prev,
-      debts: prev.debts.map((d) => (d.id === id ? { ...d, ...updated } : d)),
+      debts: prev.debts.map((d) => {
+        if (d.id !== id) return d;
+        return { ...d, ...updated };
+      }),
     }));
   };
 
@@ -925,26 +965,25 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       note,
     };
 
-    let targetDebt: DebtItem | undefined;
     setData((prev) => {
+      let targetDebt: DebtItem | undefined;
       const updatedDebts = prev.debts.map((debt) => {
         if (debt.id !== debtId) return debt;
-        targetDebt = debt;
         const allPayments = [...debt.payments, payment];
         const paidSoFar = allPayments.reduce((acc, p) => acc + p.amountUSD, 0);
         const isFullyPaid = paidSoFar >= debt.totalAmountUSD - 0.001;
-        return {
+        targetDebt = {
           ...debt,
           payments: allPayments,
           status: (isFullyPaid ? 'pagada' : 'activa') as 'activa' | 'pagada',
           paidAt: isFullyPaid ? new Date().toISOString() : undefined,
         };
+        return targetDebt;
       });
 
-      // Optionally register as a paid expense so it reduces Saldo Neto
       let updatedExpenses = prev.expenses;
       if (registerExpense && targetDebt) {
-        const expenseItem: ExpenseItem = {
+        const createdExpense: ExpenseItem = {
           id: `exp-debt-${Date.now()}`,
           description: `Abono Deuda: ${targetDebt.creditor} (${targetDebt.description})`,
           amountUSD,
@@ -954,7 +993,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           createdAt: new Date().toISOString(),
           paidAt: new Date().toISOString(),
         };
-        updatedExpenses = [expenseItem, ...prev.expenses];
+        updatedExpenses = [createdExpense, ...prev.expenses];
       }
 
       return {
@@ -972,7 +1011,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const updatedDebts = prev.debts.map((debt) => {
         if (debt.id !== debtId) return debt;
-        targetDebt = debt;
         const paidSoFar = debt.payments.reduce((acc, p) => acc + p.amountUSD, 0);
         debtAmountToPay = Math.max(0, debt.totalAmountUSD - paidSoFar);
 
@@ -983,17 +1021,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           note: 'Liquidación total de deuda',
         };
 
-        return {
+        targetDebt = {
           ...debt,
           payments: [...debt.payments, fullPayment],
           status: 'pagada' as const,
           paidAt: new Date().toISOString(),
         };
+        return targetDebt;
       });
 
       let updatedExpenses = prev.expenses;
       if (registerExpense && targetDebt && debtAmountToPay > 0) {
-        const expenseItem: ExpenseItem = {
+        const createdExpense: ExpenseItem = {
           id: `exp-debt-full-${Date.now()}`,
           description: `Liquidación Total Deuda: ${targetDebt.creditor} (${targetDebt.description})`,
           amountUSD: debtAmountToPay,
@@ -1003,7 +1042,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           createdAt: new Date().toISOString(),
           paidAt: new Date().toISOString(),
         };
-        updatedExpenses = [expenseItem, ...prev.expenses];
+        updatedExpenses = [createdExpense, ...prev.expenses];
       }
 
       return {
@@ -1035,7 +1074,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const updateReceivable = (id: string, updated: Partial<ReceivableItem>) => {
     setData((prev) => ({
       ...prev,
-      receivables: prev.receivables.map((r) => (r.id === id ? { ...r, ...updated } : r)),
+      receivables: prev.receivables.map((r) => {
+        if (r.id !== id) return r;
+        return { ...r, ...updated };
+      }),
     }));
   };
 
@@ -1049,9 +1091,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const markReceivableAsPaid = (id: string) => {
     setData((prev) => ({
       ...prev,
-      receivables: prev.receivables.map((r) =>
-        r.id === id ? { ...r, status: 'pagado', paidAt: new Date().toISOString() } : r
-      ),
+      receivables: prev.receivables.map((r) => {
+        if (r.id !== id) return r;
+        return { ...r, status: 'pagado', paidAt: new Date().toISOString() };
+      }),
     }));
   };
 
@@ -1061,7 +1104,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Global reset
   const resetAllData = () => {
-    setData({
+    const emptyDataset: FinanceData = {
       bcvRate: data.bcvRate || 71.85,
       lastBcvUpdate: new Date().toISOString(),
       profile: data.profile,
@@ -1070,7 +1113,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       expenses: [],
       debts: [],
       receivables: [],
-    });
+    };
+    setData(emptyDataset);
   };
 
   // Calculated totals
@@ -1285,7 +1329,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         return {
           success: true,
-          message: `Copia de seguridad restaurada exitosamente. Se guardaron ${total} registros en LocalStorage.`,
+          message: `Copia de seguridad restaurada exitosamente. Se guardaron ${total} registros en almacenamiento local.`,
           recordsCount: total,
         };
       } else {
@@ -1422,6 +1466,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         restoreFromBackup,
         isBackupModalOpen,
         setIsBackupModalOpen,
+        // Local Storage
+        cloudSyncState,
+        loginWithGoogleAction,
+        logoutAction,
+        forceSyncToCloudAction,
+        isCloudModalOpen,
+        setIsCloudModalOpen,
       }}
     >
       {children}

@@ -74,7 +74,7 @@ export interface UserProfile {
   createdAt?: string;
 }
 
-export type ActiveModule = 'inicio' | 'ingresos' | 'egresos' | 'pendientes' | 'deudas' | 'cobrar' | 'graficos';
+export type ActiveModule = 'inicio' | 'ingresos' | 'egresos' | 'pendientes' | 'deudas' | 'cobrar' | 'calendario';
 
 export interface FinanceData {
   bcvRate: number;
@@ -133,4 +133,16 @@ export interface RestoreResult {
     categoriesCount: number;
     netBalanceUSD: number;
   };
+}
+
+export type CloudSyncStatus = 'synced' | 'syncing' | 'offline' | 'unauthenticated' | 'error';
+
+export interface CloudSyncState {
+  userEmail: string | null;
+  userName: string | null;
+  userId: string | null;
+  status: CloudSyncStatus;
+  lastSyncedAt: string | null;
+  isSyncing: boolean;
+  errorMessage: string | null;
 }

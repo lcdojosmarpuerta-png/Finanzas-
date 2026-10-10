@@ -6,7 +6,7 @@ import {
   Clock,
   Landmark,
   HandCoins,
-  PieChart,
+  Calendar,
   Tag,
   DollarSign,
 } from 'lucide-react';
@@ -79,9 +79,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCategories }) => {
       activeColor: 'text-[#2ECC71]',
     },
     {
-      id: 'graficos',
-      label: 'Gráficos & Análisis',
-      icon: PieChart,
+      id: 'calendario',
+      label: 'Calendario',
+      icon: Calendar,
       activeColor: 'text-[#FFD700]',
     },
   ];
@@ -154,10 +154,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenCategories }) => {
           <span className="font-mono text-white">USD ($) & Bs.</span>
         </div>
         <div className="flex items-center justify-between text-neutral-400 text-[11px]">
-          <span>Estado Local:</span>
+          <span>Almacenamiento:</span>
           <span className="text-emerald-400 font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            Sincronizado
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+            Guardado Local
           </span>
         </div>
       </div>

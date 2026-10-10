@@ -6,7 +6,6 @@ import {
   Clock,
   Landmark,
   HandCoins,
-  PieChart,
   Tag,
   User,
   Trash2,
@@ -19,10 +18,17 @@ import {
   WifiOff,
   HardDrive,
   FileJson,
+  Bell,
+  Calendar,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext.tsx';
 import { ActiveModule } from '../../types/finance.ts';
 import { formatUSD } from '../../services/bcvService.ts';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  sendTestNotification,
+} from '../../services/notificationService.ts';
 
 interface MenuCompletoModalProps {
   isOpen: boolean;
@@ -133,12 +139,12 @@ export const MenuCompletoModal: React.FC<MenuCompletoModalProps> = ({
       bgColor: 'bg-emerald-500/10 border-emerald-500/30',
     },
     {
-      id: 'graficos',
-      title: 'Gráficos & Análisis',
-      description: 'Donas de flujo, comparativos de pasivos y tendencias',
-      icon: PieChart,
+      id: 'calendario',
+      title: 'Calendario',
+      description: 'Control de ingresos y egresos organizados por fecha',
+      icon: Calendar,
       color: 'text-[#FFD700]',
-      bgColor: 'bg-yellow-500/10 border-yellow-500/30',
+      bgColor: 'bg-amber-500/10 border-amber-500/30',
     },
   ];
 
@@ -337,6 +343,24 @@ export const MenuCompletoModal: React.FC<MenuCompletoModalProps> = ({
                 <div>
                   <span className="text-xs font-semibold text-[#FFD700] block">Copia de Seguridad</span>
                   <span className="text-[10px] text-neutral-400">Exportar & Restaurar JSON</span>
+                </div>
+              </button>
+
+              <button
+                onClick={async () => {
+                  const perm = getNotificationPermission();
+                  if (perm !== 'granted') {
+                    await requestNotificationPermission();
+                  }
+                  sendTestNotification();
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl bg-[#1E1E1E] hover:bg-amber-500/10 border border-neutral-800 hover:border-amber-500/30 transition-colors text-left cursor-pointer"
+                title="Comprobar y activar avisos del sistema en segundo plano"
+              >
+                <Bell className="w-4 h-4 text-amber-400" />
+                <div>
+                  <span className="text-xs font-semibold text-white block">Alertas del Sistema</span>
+                  <span className="text-[10px] text-neutral-400">Probar avisos en segundo plano</span>
                 </div>
               </button>
 

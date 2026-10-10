@@ -22,7 +22,6 @@ import {
   Wallet,
   ArrowUpRight,
   Zap,
-  Percent,
   CheckSquare,
   Square,
   CheckCheck,
@@ -51,7 +50,6 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
     markAllIncomesAsDeposited,
     markSelectedIncomesAsDeposited,
     totalIncomeUSD,
-    totalIncomeDepositedUSD,
     totalIncomePendingUSD,
     netAvailableBalanceUSD,
     getCategoryById,
@@ -106,21 +104,6 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
   const totalIncomesDepositedCount = useMemo(() => {
     return data.incomes.filter((i) => i.status === 'depositado' || (!i.status && i.status !== 'pendiente')).length;
   }, [data.incomes]);
-
-  // Opción 2: Métricas de Avance de Liquidez y Depósitos
-  const totalSumIncomes = useMemo(() => {
-    return totalIncomeDepositedUSD + totalIncomePendingUSD;
-  }, [totalIncomeDepositedUSD, totalIncomePendingUSD]);
-
-  const pctDeposited = useMemo(() => {
-    if (totalSumIncomes <= 0) return 0;
-    return (totalIncomeDepositedUSD / totalSumIncomes) * 100;
-  }, [totalSumIncomes, totalIncomeDepositedUSD]);
-
-  const pctPending = useMemo(() => {
-    if (totalSumIncomes <= 0) return 0;
-    return (totalIncomePendingUSD / totalSumIncomes) * 100;
-  }, [totalSumIncomes, totalIncomePendingUSD]);
 
   // Opción 1: Cálculos y selección múltiple de pendientes
   const selectedPendingItems = useMemo(() => {
@@ -299,61 +282,261 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
 
   return (
     <div className="space-y-6">
-      {/* 1. Al principio de la página: Barra de Acción con botón "Añadir Ingreso" */}
-      <div className="bg-[#1A1A1A] border border-neutral-800/90 rounded-3xl p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-[#2ECC71] border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/10">
-            <Plus className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Ingresos del Perfil</span>
-              <span className="text-[11px] font-mono font-bold bg-emerald-500/20 text-[#2ECC71] px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                {data.incomes.length} registrados
+      {/* 1. Al principio del módulo: Formulario al desplegarse, o solo el botón de Nuevo Ingreso */}
+      {isFormOpen ? (
+        <div className="bg-gradient-to-b from-[#1E1E1E] to-[#171717] border border-emerald-500/30 rounded-3xl p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.6)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {/* Subtle green ambient light */}
+          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex items-center justify-between pb-4 border-b border-neutral-800 relative z-10">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#2ECC71] font-bold block">
+                Nuevo Registro
               </span>
-            </h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              Haz clic en &quot;Añadir Ingreso&quot; para registrar un nuevo ingreso y confirmar su depósito en cuenta.
-            </p>
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2 mt-0.5">
+                <Plus className="w-5 h-5 text-[#2ECC71]" />
+                Registrar Ingreso
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenCategories}
+                className="text-xs text-[#FFD700] hover:text-yellow-300 font-semibold flex items-center gap-1 cursor-pointer bg-yellow-500/10 px-2.5 py-1 rounded-lg border border-yellow-500/20"
+              >
+                <Tag className="w-3 h-3" />
+                <span>Categorías</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                title="Cerrar formulario"
+                className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4 relative z-10">
+            {/* Monto USD with presets */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                Monto en Dólares (USD $) *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-3 text-neutral-400 text-sm font-mono font-bold">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={amountUSD}
+                  onChange={(e) => setAmountUSD(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-[#121212] border-2 border-neutral-700/80 focus:border-[#2ECC71] rounded-2xl pl-8 pr-4 py-2.5 text-sm sm:text-base font-mono font-bold text-white placeholder-neutral-500 focus:outline-none shadow-inner transition-colors"
+                />
+              </div>
+
+              {/* Quick preset chips */}
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <span className="text-[10px] text-neutral-500 font-mono">Montos rápidos:</span>
+                {PRESET_AMOUNTS.map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => handlePresetClick(amt)}
+                    className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-lg bg-neutral-800/90 text-neutral-300 hover:text-white hover:bg-neutral-700 border border-neutral-700/60 transition-colors cursor-pointer"
+                  >
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Live Reactive Bolívares Reconversion Card */}
+              <div className="mt-2.5 p-3 bg-[#121212] border border-neutral-800 rounded-xl flex items-center justify-between text-xs font-mono shadow-inner">
+                <div>
+                  <span className="text-[10px] text-neutral-400 block">Reconversión BCV:</span>
+                  <span className="text-sm font-extrabold text-[#FFD700] tabular-nums">
+                    {formatBs(convertedBs)}
+                  </span>
+                </div>
+                <span className="text-[10px] text-neutral-500 font-sans">
+                  @ Bs. {bcvRate.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Categoría Selector (Lista Desplegable) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-neutral-300">
+                  Categoría del Ingreso *
+                </label>
+                {onOpenCategories && (
+                  <button
+                    type="button"
+                    onClick={onOpenCategories}
+                    className="text-[10px] text-[#FFD700] hover:underline cursor-pointer"
+                  >
+                    + Crear Categoría
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <select
+                  value={activeCategoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full bg-[#121212] border-2 border-neutral-700/80 focus:border-[#2ECC71] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none shadow-inner cursor-pointer transition-colors appearance-none pr-10"
+                >
+                  {incomeCategories.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-[#181818] text-white py-1.5">
+                      📁 {c.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-neutral-400 absolute right-3.5 top-3.5 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Descripción */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                Descripción / Concepto *
+              </label>
+              <input
+                type="text"
+                required
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ej. Honorarios por servicio, venta de mercancía..."
+                className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none shadow-inner"
+              />
+            </div>
+
+            {/* Selector de Fecha */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                Fecha de Recepción *
+              </label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3 py-2 text-xs text-white focus:outline-none shadow-inner"
+              />
+            </div>
+
+            {/* Estado del Depósito (Depositado vs Pendiente) */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
+                <span>¿Está depositado en cuenta bancaria? *</span>
+                <span className="text-[10px] text-neutral-400 font-normal">
+                  {initialStatus === 'depositado' ? 'Sumará al saldo neto' : 'No se suma hasta confirmar'}
+                </span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setInitialStatus('pendiente')}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    initialStatus === 'pendiente'
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm'
+                      : 'bg-[#121212] border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Pendiente por Depositar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInitialStatus('depositado')}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    initialStatus === 'depositado'
+                      ? 'bg-emerald-500/20 border-emerald-500 text-[#2ECC71] shadow-sm'
+                      : 'bg-[#121212] border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2ECC71]" />
+                  <span>Depositado en Cuenta</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                {initialStatus === 'pendiente'
+                  ? 'Podrás presionar el botón "Depositado" en cualquier momento cuando el dinero esté en cuenta para sumarlo al Saldo Neto Disponible.'
+                  : 'Este ingreso se considerará efectivo y se sumará inmediatamente a tu Saldo Neto Disponible.'}
+              </p>
+            </div>
+
+            {/* Cuenta o Banco Destino (Opcional) */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1 flex items-center justify-between">
+                <span>Cuenta o Banco Destino (Opcional)</span>
+                <span className="text-[10px] text-neutral-500">Ej: Banesco, Zelle, Pago Móvil</span>
+              </label>
+              <input
+                type="text"
+                list="income-bank-list"
+                value={bankAccount}
+                onChange={(e) => setBankAccount(e.target.value)}
+                placeholder="Selecciona o escribe el banco / método..."
+                className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none shadow-inner"
+              />
+              <datalist id="income-bank-list">
+                <option value="Banesco" />
+                <option value="Banco Mercantil" />
+                <option value="BBVA Provincial" />
+                <option value="Banco de Venezuela" />
+                <option value="Bancaribe" />
+                <option value="BNC" />
+                <option value="Pago Móvil" />
+                <option value="Zelle" />
+                <option value="Binance (USDT)" />
+                <option value="Efectivo USD" />
+                <option value="Efectivo Bs" />
+              </datalist>
+            </div>
+
+            {/* Submit & Close Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="py-3 px-5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold text-xs rounded-2xl transition-all cursor-pointer"
+              >
+                Cerrar Formulario
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-3 px-5 bg-gradient-to-r from-[#2ECC71] to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-black font-extrabold text-xs rounded-2xl shadow-[0_6px_25px_rgba(46,204,113,0.3)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Guardar Ingreso</span>
+              </button>
+            </div>
+
+            {/* Success message badge */}
+            {showSuccessBadge && (
+              <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-semibold flex items-center justify-center gap-1.5 animate-in fade-in">
+                <Check className="w-4 h-4" />
+                <span>¡Ingreso registrado exitosamente!</span>
+              </div>
+            )}
+          </form>
         </div>
-
-        <div className="flex items-center gap-2">
-          {data.incomes.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setConfirmClearOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-3 text-xs font-semibold text-neutral-400 hover:text-[#E74C3C] bg-neutral-800/80 hover:bg-red-500/10 border border-neutral-700 hover:border-red-500/30 rounded-2xl transition-all cursor-pointer"
-              title="Limpiar todos los ingresos"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Limpiar Todo</span>
-            </button>
-          )}
-
+      ) : (
+        <div>
           <button
             type="button"
-            onClick={() => setIsFormOpen((prev) => !prev)}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-extrabold transition-all duration-200 cursor-pointer shadow-lg active:scale-95 shrink-0 ${
-              isFormOpen
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700'
-                : 'bg-gradient-to-r from-[#2ECC71] to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-black shadow-emerald-500/20 hover:shadow-emerald-500/30'
-            }`}
+            onClick={() => setIsFormOpen(true)}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#2ECC71] to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-black font-extrabold text-sm shadow-[0_4px_20px_rgba(46,204,113,0.3)] hover:shadow-[0_6px_25px_rgba(46,204,113,0.4)] transition-all cursor-pointer active:scale-95"
           >
-            {isFormOpen ? (
-              <>
-                <X className="w-4 h-4 stroke-[2.5]" />
-                <span>Ocultar Formulario</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5 stroke-[3]" />
-                <span>Añadir Ingreso</span>
-              </>
-            )}
+            <Plus className="w-5 h-5 stroke-[2.8]" />
+            <span>Nuevo Ingreso</span>
           </button>
         </div>
-      </div>
+      )}
 
       {/* Alerta de Éxito al Confirmar Depósito */}
       {depositSuccessMsg && (
@@ -378,428 +561,42 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
         </div>
       )}
 
-      {/* KPI Cards: Depositados (En Saldo Neto) y Pendientes por Depositar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Card 1: Ingresos Depositados (En Saldo Neto Disponible) */}
-        <div className="bg-[#1A1A1A] border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.55)] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-bold text-[#2ECC71] uppercase tracking-wider flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5" />
-              Depositados (En Saldo Neto)
-            </span>
-            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-[#2ECC71] px-2 py-0.5 rounded-full border border-emerald-500/30">
-              {totalIncomesDepositedCount} confirmados
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-[#2ECC71] font-mono tabular-nums">
-              +{formatUSD(totalIncomeDepositedUSD)}
-            </span>
-            <span className="text-xs text-neutral-400 font-semibold font-mono">USD</span>
-          </div>
-          <div className="text-xs font-mono text-[#FFD700] mt-1 tabular-nums flex items-center gap-1.5">
-            <span>Equivalente:</span>
-            <strong className="font-extrabold">{formatBs(calcBs(totalIncomeDepositedUSD, bcvRate))}</strong>
-            <span className="text-neutral-500 text-[10px]">(@ Bs. {bcvRate.toFixed(2)})</span>
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-2 flex items-center gap-1">
-            <Check className="w-3.5 h-3.5 text-[#2ECC71]" />
-            <span>Suma de manera efectiva al Saldo Neto Disponible</span>
-          </p>
-        </div>
-
-        {/* Card 2: Pendientes por Depositar */}
-        <div className="bg-[#1A1A1A] border border-amber-500/30 rounded-3xl p-5 sm:p-6 shadow-[0_12px_40px_rgba(0,0,0,0.55)] relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
-              Pendientes por Depositar
-            </span>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
-              totalIncomesPendingCount > 0
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
-                : 'bg-neutral-800 text-neutral-400 border-neutral-700'
-            }`}>
-              {totalIncomesPendingCount} por confirmar
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-mono tabular-nums">
-              +{formatUSD(totalIncomePendingUSD)}
-            </span>
-            <span className="text-xs text-neutral-400 font-semibold font-mono">USD</span>
-          </div>
-          <div className="text-xs font-mono text-[#FFD700] mt-1 tabular-nums flex items-center gap-1.5">
-            <span>Equivalente:</span>
-            <strong className="font-extrabold">{formatBs(calcBs(totalIncomePendingUSD, bcvRate))}</strong>
-            <span className="text-neutral-500 text-[10px]">(@ Bs. {bcvRate.toFixed(2)})</span>
-          </div>
-          <p className="text-[11px] text-neutral-400 mt-2 flex items-center gap-1">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span>No se suma al saldo hasta presionar &quot;Depositado&quot;</span>
-          </p>
-
-          {/* Opción 1: Botón de depósito masivo directo */}
-          {totalIncomesPendingCount > 0 && (
-            <div className="mt-3.5 pt-3 border-t border-neutral-800/80 flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-[11px] text-amber-300/90 font-medium flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-400" />
-                <span>{totalIncomesPendingCount} {totalIncomesPendingCount === 1 ? 'pendiente de acreditación' : 'pendientes de acreditación'}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setConfirmBulkAllOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black rounded-xl shadow-[0_2px_12px_rgba(245,158,11,0.3)] hover:shadow-[0_4px_16px_rgba(245,158,11,0.5)] active:scale-95 transition-all cursor-pointer shrink-0"
-                title="Depositar todos los ingresos pendientes a la vez"
-              >
-                <Zap className="w-3.5 h-3.5 fill-black stroke-black" />
-                <span>Depositar Todos (+{formatUSD(totalIncomePendingUSD)} USD)</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Opción 2: Barra de Progreso de Liquidez & Métricas de Depósito */}
-      <div className="bg-[#1A1A1A] border border-neutral-800/90 rounded-3xl p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      {/* Indicador de Ingresos Pendientes por Depositar (si existen) con botón de depósito masivo */}
+      {totalIncomesPendingCount > 0 && (
+        <div className="bg-[#1A1A1A] border border-amber-500/30 rounded-3xl p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-[#2ECC71] flex items-center justify-center border border-emerald-500/30 shrink-0">
-              <Percent className="w-4 h-4 stroke-[2.5]" />
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2 flex-wrap">
-                <span>Avance de Liquidez & Depósitos</span>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#2ECC71] border border-emerald-500/30">
-                  {pctDeposited.toFixed(1)}% Liquidado en Cuenta
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                  Ingresos Pendientes por Depositar
                 </span>
-                {pctPending > 0 && (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {pctPending.toFixed(1)}% Por Confirmar
-                  </span>
-                )}
-              </h4>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Proporción de ingresos acreditados efectivamente en cuenta bancaria vs pendientes de depósito.
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                  {totalIncomesPendingCount}
+                </span>
+              </div>
+              <p className="text-xs font-mono text-neutral-300 mt-0.5">
+                Monto pendiente: <strong className="text-amber-400 font-extrabold">+{formatUSD(totalIncomePendingUSD)} USD</strong> ({formatBs(calcBs(totalIncomePendingUSD, bcvRate))})
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setStatusFilter('depositado')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === 'depositado'
-                  ? 'bg-emerald-500/20 text-[#2ECC71] border border-emerald-500/40 shadow-sm'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-              }`}
-              title="Filtrar solo depositados"
-            >
-              <span className="w-2 h-2 rounded-full bg-[#2ECC71]" />
-              <span>Depositado: {pctDeposited.toFixed(1)}%</span>
-            </button>
-            <span className="text-neutral-700">·</span>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('pendiente')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                statusFilter === 'pendiente'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-              }`}
-              title="Filtrar solo pendientes"
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span>Pendiente: {pctPending.toFixed(1)}%</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmBulkAllOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-black rounded-xl shadow-[0_2px_12px_rgba(245,158,11,0.3)] hover:shadow-[0_4px_16px_rgba(245,158,11,0.5)] active:scale-95 transition-all cursor-pointer shrink-0 self-start sm:self-center"
+            title="Depositar todos los ingresos pendientes a la vez"
+          >
+            <Zap className="w-3.5 h-3.5 fill-black stroke-black" />
+            <span>Depositar Todos (+{formatUSD(totalIncomePendingUSD)} USD)</span>
+          </button>
         </div>
+      )}
 
-        {/* Dual-tone Visual Progress Bar */}
-        <div className="w-full h-3.5 bg-neutral-900 rounded-full overflow-hidden p-0.5 border border-neutral-800 flex shadow-inner">
-          <div
-            style={{ width: `${pctDeposited}%` }}
-            className="h-full bg-gradient-to-r from-emerald-500 to-[#2ECC71] rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(46,204,113,0.35)]"
-            title={`Depositado en cuenta: ${pctDeposited.toFixed(1)}% (+${formatUSD(totalIncomeDepositedUSD)} USD)`}
-          />
-          <div
-            style={{ width: `${pctPending}%` }}
-            className="h-full bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(245,158,11,0.35)]"
-            title={`Pendiente por depositar: ${pctPending.toFixed(1)}% (+${formatUSD(totalIncomePendingUSD)} USD)`}
-          />
-        </div>
-
-        {/* Informative Footer */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-neutral-400 pt-0.5">
-          <span>
-            Total en flujo de ingresos: <strong className="text-white font-mono">{formatUSD(totalSumIncomes)} USD</strong> ({formatBs(calcBs(totalSumIncomes, bcvRate))})
-          </span>
-          <div>
-            {pctDeposited === 100 ? (
-              <span className="text-[#2ECC71] font-semibold flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" /> 100% de los ingresos liquidados y disponibles
-              </span>
-            ) : (
-              <span>
-                Faltan <strong className="text-amber-400 font-mono">+{formatUSD(totalIncomePendingUSD)} USD</strong> por depositar en cuenta
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Formulario (si está abierto) & Listado */}
-      <div className={`grid grid-cols-1 ${isFormOpen ? 'lg:grid-cols-12' : 'grid-cols-1'} gap-6`}>
-        {/* Modernized Formulario de Ingreso condicional */}
-        {isFormOpen && (
-          <div className="lg:col-span-5 bg-gradient-to-b from-[#1E1E1E] to-[#171717] border border-emerald-500/30 rounded-3xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.6)] h-fit relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Subtle green ambient light */}
-            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="flex items-center justify-between pb-4 border-b border-neutral-800 relative z-10">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#2ECC71] font-bold block">
-                  Nuevo Registro
-                </span>
-                <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2 mt-0.5">
-                  <Plus className="w-4 h-4 text-[#2ECC71]" />
-                  Registrar Ingreso
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenCategories}
-                  className="text-xs text-[#FFD700] hover:text-yellow-300 font-semibold flex items-center gap-1 cursor-pointer bg-yellow-500/10 px-2.5 py-1 rounded-lg border border-yellow-500/20"
-                >
-                  <Tag className="w-3 h-3" />
-                  <span>Categorías</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  title="Cerrar formulario"
-                  className="p-1 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4 relative z-10">
-              {/* Monto USD with presets */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                  Monto en Dólares (USD $) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-3 text-neutral-400 text-sm font-mono font-bold">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={amountUSD}
-                    onChange={(e) => setAmountUSD(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full bg-[#121212] border-2 border-neutral-700/80 focus:border-[#2ECC71] rounded-2xl pl-8 pr-4 py-2.5 text-sm sm:text-base font-mono font-bold text-white placeholder-neutral-500 focus:outline-none shadow-inner transition-colors"
-                  />
-                </div>
-
-                {/* Quick preset chips */}
-                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  <span className="text-[10px] text-neutral-500 font-mono">Montos rápidos:</span>
-                  {PRESET_AMOUNTS.map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => handlePresetClick(amt)}
-                      className="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-lg bg-neutral-800/90 text-neutral-300 hover:text-white hover:bg-neutral-700 border border-neutral-700/60 transition-colors cursor-pointer"
-                    >
-                      +${amt}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Live Reactive Bolívares Reconversion Card */}
-                <div className="mt-2.5 p-3 bg-[#121212] border border-neutral-800 rounded-xl flex items-center justify-between text-xs font-mono shadow-inner">
-                  <div>
-                    <span className="text-[10px] text-neutral-400 block">Reconversión BCV:</span>
-                    <span className="text-sm font-extrabold text-[#FFD700] tabular-nums">
-                      {formatBs(convertedBs)}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-neutral-500 font-sans">
-                    @ Bs. {bcvRate.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Categoría Selector (Lista Desplegable) */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-neutral-300">
-                    Categoría del Ingreso *
-                  </label>
-                  {onOpenCategories && (
-                    <button
-                      type="button"
-                      onClick={onOpenCategories}
-                      className="text-[10px] text-[#FFD700] hover:underline cursor-pointer"
-                    >
-                      + Crear Categoría
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <select
-                    value={activeCategoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full bg-[#121212] border-2 border-neutral-700/80 focus:border-[#2ECC71] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none shadow-inner cursor-pointer transition-colors appearance-none pr-10"
-                  >
-                    {incomeCategories.map((c) => (
-                      <option key={c.id} value={c.id} className="bg-[#181818] text-white py-1.5">
-                        📁 {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-neutral-400 absolute right-3.5 top-3.5 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Descripción */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Descripción / Concepto *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ej. Honorarios por servicio, venta de mercancía..."
-                  className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none shadow-inner"
-                />
-              </div>
-
-              {/* Selector de Fecha */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1">
-                  Fecha de Recepción *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3 py-2 text-xs text-white focus:outline-none shadow-inner"
-                />
-              </div>
-
-              {/* Estado del Depósito (Depositado vs Pendiente) */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
-                  <span>¿Está depositado en cuenta bancaria? *</span>
-                  <span className="text-[10px] text-neutral-400 font-normal">
-                    {initialStatus === 'depositado' ? 'Sumará al saldo neto' : 'No se suma hasta confirmar'}
-                  </span>
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setInitialStatus('pendiente')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      initialStatus === 'pendiente'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm'
-                        : 'bg-[#121212] border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Pendiente por Depositar</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInitialStatus('depositado')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      initialStatus === 'depositado'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-[#2ECC71] shadow-sm'
-                        : 'bg-[#121212] border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2ECC71]" />
-                    <span>Depositado en Cuenta</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-500 mt-1">
-                  {initialStatus === 'pendiente'
-                    ? 'Podrás presionar el botón "Depositado" en cualquier momento cuando el dinero esté en cuenta para sumarlo al Saldo Neto Disponible.'
-                    : 'Este ingreso se considerará efectivo y se sumará inmediatamente a tu Saldo Neto Disponible.'}
-                </p>
-              </div>
-
-              {/* Cuenta o Banco Destino (Opcional) */}
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1 flex items-center justify-between">
-                  <span>Cuenta o Banco Destino (Opcional)</span>
-                  <span className="text-[10px] text-neutral-500">Ej: Banesco, Zelle, Pago Móvil</span>
-                </label>
-                <input
-                  type="text"
-                  list="income-bank-list"
-                  value={bankAccount}
-                  onChange={(e) => setBankAccount(e.target.value)}
-                  placeholder="Selecciona o escribe el banco / método..."
-                  className="w-full bg-[#121212] border border-neutral-700 focus:border-[#2ECC71] rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none shadow-inner"
-                />
-                <datalist id="income-bank-list">
-                  <option value="Banesco" />
-                  <option value="Banco Mercantil" />
-                  <option value="BBVA Provincial" />
-                  <option value="Banco de Venezuela" />
-                  <option value="Bancaribe" />
-                  <option value="BNC" />
-                  <option value="Pago Móvil" />
-                  <option value="Zelle" />
-                  <option value="Binance (USDT)" />
-                  <option value="Efectivo USD" />
-                  <option value="Efectivo Bs" />
-                </datalist>
-              </div>
-
-              {/* Submit & Close Buttons */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="py-3 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-bold text-xs rounded-2xl transition-all cursor-pointer"
-                >
-                  Cerrar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-[#2ECC71] to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-black font-extrabold text-xs rounded-2xl shadow-[0_6px_25px_rgba(46,204,113,0.3)] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Guardar Ingreso</span>
-                </button>
-              </div>
-
-              {/* Success message badge */}
-              {showSuccessBadge && (
-                <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-semibold flex items-center justify-center gap-1.5 animate-in fade-in">
-                  <Check className="w-4 h-4" />
-                  <span>¡Ingreso registrado exitosamente!</span>
-                </div>
-              )}
-            </form>
-          </div>
-        )}
-
-        {/* Listado con Filtros de Estado, Categoría y Fecha */}
-        <div className={`${isFormOpen ? 'lg:col-span-7' : 'lg:col-span-12'} bg-[#1A1A1A] border border-neutral-800/90 rounded-3xl p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300`}>
+      {/* Listado con Filtros de Estado, Categoría y Fecha (Ancho completo) */}
+      <div className="w-full bg-[#1A1A1A] border border-neutral-800/90 rounded-3xl p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300">
           {/* Header & Filter Controls */}
           <div className="pb-4 border-b border-neutral-800 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -814,14 +611,15 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
 
               {/* Search and Action */}
               <div className="flex items-center gap-2">
-                {!isFormOpen && (
+                {data.incomes.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setIsFormOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2ECC71] hover:bg-emerald-400 text-black text-xs font-extrabold rounded-xl shadow transition-colors cursor-pointer shrink-0"
+                    onClick={() => setConfirmClearOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-neutral-400 hover:text-[#E74C3C] bg-neutral-900/80 hover:bg-red-500/10 border border-neutral-800 hover:border-red-500/30 rounded-xl transition-all cursor-pointer shrink-0"
+                    title="Limpiar todos los ingresos"
                   >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Agregar Ingreso</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Limpiar Todo</span>
                   </button>
                 )}
                 <div className="relative">
@@ -1285,7 +1083,6 @@ export const IncomeModule: React.FC<IncomeModuleProps> = ({ onOpenCategories }) 
             </div>
           )}
         </div>
-      </div>
 
       {/* Confirmation Modals */}
       {/* Opción 1: Modal de Depósito Masivo de Todos los Pendientes */}

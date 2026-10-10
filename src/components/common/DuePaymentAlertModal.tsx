@@ -11,10 +11,17 @@ import {
   Landmark,
   ArrowRight,
   ShieldAlert,
+  Bell,
+  Check,
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext.tsx';
 import { formatUSD, formatBs, calcBs } from '../../services/bcvService.ts';
 import { ExpenseItem, DebtItem } from '../../types/finance.ts';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  sendTestNotification,
+} from '../../services/notificationService.ts';
 
 export interface DuePaymentItem {
   id: string;
@@ -71,6 +78,22 @@ export const DuePaymentAlertModal: React.FC<DuePaymentAlertModalProps> = ({
   } = useFinance();
 
   const [paidItemIds, setPaidItemIds] = useState<Record<string, boolean>>({});
+  const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
+  const [testSent, setTestSent] = useState(false);
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission());
+  }, []);
+
+  const handleRequestNotifications = async () => {
+    const res = await requestNotificationPermission();
+    setNotifPermission(res);
+    if (res === 'granted') {
+      setTestSent(true);
+      sendTestNotification();
+      setTimeout(() => setTestSent(false), 3500);
+    }
+  };
 
   // Collect all pending payments (pending expenses + active debts)
   const dueItems = useMemo<DuePaymentItem[]>(() => {
@@ -219,6 +242,49 @@ export const DuePaymentAlertModal: React.FC<DuePaymentAlertModalProps> = ({
               <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">
                 {dueSoonCount} Próximos
               </span>
+            )}
+          </div>
+        </div>
+
+        {/* Banner de Notificaciones del Sistema / Segundo Plano */}
+        <div className="mb-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-500/10 via-[#161616] to-emerald-500/10 border border-neutral-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5 text-xs">
+            <Bell className="w-4 h-4 text-[#FFD700] shrink-0" />
+            <div className="text-[11px] text-neutral-300">
+              <span className="font-bold text-white">Alertas en Segundo Plano: </span>
+              {notifPermission === 'granted' ? (
+                <span className="text-emerald-400">Activas. Recibirás avisos en tu pantalla aun cuando la app esté minimizada.</span>
+              ) : (
+                <span className="text-neutral-400">Actívalas para recibir alertas del sistema incluso cuando no tengas la app en primer plano.</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {notifPermission === 'granted' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setTestSent(true);
+                  sendTestNotification();
+                  setTimeout(() => setTestSent(false), 3000);
+                }}
+                disabled={testSent}
+                className="px-2.5 py-1 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                title="Probar notificación en tu sistema operativo"
+              >
+                {testSent ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Bell className="w-3.5 h-3.5 text-amber-400" />}
+                <span>{testSent ? '¡Notificación Enviada!' : 'Probar Notificación'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleRequestNotifications}
+                className="px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-[#FFD700] hover:from-amber-400 hover:to-yellow-400 text-black text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>Activar Avisos del Sistema</span>
+              </button>
             )}
           </div>
         </div>

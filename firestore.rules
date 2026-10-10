@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health / connectivity probe document
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Hardened primitive helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isValidId(userId) && (request.auth == null || request.auth.uid == userId);
+    }
+
+    // Blueprint Validators
+    function isValidUserDoc(data) {
+      return data.keys().hasAll(['name', 'title']) &&
+        data.keys().hasOnly(['id', 'name', 'title', 'avatarUrl', 'accountType', 'colorTag', 'createdAt', 'bcvRate', 'lastBcvUpdate', 'activeProfileId', 'updatedAt', 'email', 'backupData']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.title is string && data.title.size() <= 100;
+    }
+
+    function isValidIncome(data) {
+      return data.keys().hasAll(['description', 'amountUSD', 'date', 'categoryId', 'status']) &&
+        data.keys().hasOnly(['id', 'description', 'amountUSD', 'date', 'categoryId', 'status', 'createdAt', 'depositedAt', 'bankAccount']) &&
+        data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+        data.amountUSD is number && data.amountUSD >= 0 &&
+        data.date is string && data.date.size() <= 30 &&
+        data.categoryId is string && data.categoryId.size() <= 64 &&
+        data.status in ['depositado', 'pendiente'] &&
+        (!('bankAccount' in data) || (data.bankAccount is string && data.bankAccount.size() <= 100));
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['description', 'amountUSD', 'date', 'categoryId', 'status']) &&
+        data.keys().hasOnly(['id', 'description', 'amountUSD', 'date', 'dueDate', 'categoryId', 'status', 'createdAt', 'paidAt']) &&
+        data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+        data.amountUSD is number && data.amountUSD >= 0 &&
+        data.date is string && data.date.size() <= 30 &&
+        data.categoryId is string && data.categoryId.size() <= 64 &&
+        data.status in ['pagado', 'pendiente'] &&
+        (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() <= 30));
+    }
+
+    function isValidDebt(data) {
+      return data.keys().hasAll(['description', 'creditor', 'totalAmountUSD', 'date', 'status']) &&
+        data.keys().hasOnly(['id', 'description', 'creditor', 'totalAmountUSD', 'date', 'dueDate', 'payments', 'status', 'createdAt', 'paidAt']) &&
+        data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+        data.creditor is string && data.creditor.size() > 0 && data.creditor.size() <= 150 &&
+        data.totalAmountUSD is number && data.totalAmountUSD >= 0 &&
+        data.date is string && data.date.size() <= 30 &&
+        data.status in ['activa', 'pagada'] &&
+        (!('payments' in data) || (data.payments is list && data.payments.size() <= 100));
+    }
+
+    function isValidReceivable(data) {
+      return data.keys().hasAll(['description', 'clientName', 'amountUSD', 'date', 'status']) &&
+        data.keys().hasOnly(['id', 'description', 'clientName', 'clientPhone', 'amountUSD', 'date', 'dueDate', 'status', 'paidAt', 'createdAt']) &&
+        data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+        data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 150 &&
+        data.amountUSD is number && data.amountUSD >= 0 &&
+        data.date is string && data.date.size() <= 30 &&
+        data.status in ['pendiente', 'pagado'] &&
+        (!('clientPhone' in data) || (data.clientPhone is string && data.clientPhone.size() <= 40));
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'type', 'color']) &&
+        data.keys().hasOnly(['id', 'name', 'type', 'color', 'imageUrl', 'iconName']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 80 &&
+        data.type in ['income', 'expense'] &&
+        data.color is string && data.color.size() <= 30;
+    }
+
+    // User Profile and settings Root Document
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserDoc(incoming());
+      allow update: if isOwner(userId) && isValidUserDoc(incoming());
+      allow delete: if isOwner(userId);
+
+      // Incomes subcollection
+      match /incomes/{incomeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(incomeId) && isValidIncome(incoming());
+        allow update: if isOwner(userId) && isValidId(incomeId) && isValidIncome(incoming());
+        allow delete: if isOwner(userId) && isValidId(incomeId);
+      }
+
+      // Expenses subcollection
+      match /expenses/{expenseId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(expenseId) && isValidExpense(incoming());
+        allow update: if isOwner(userId) && isValidId(expenseId) && isValidExpense(incoming());
+        allow delete: if isOwner(userId) && isValidId(expenseId);
+      }
+
+      // Debts subcollection
+      match /debts/{debtId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(debtId) && isValidDebt(incoming());
+        allow update: if isOwner(userId) && isValidId(debtId) && isValidDebt(incoming());
+        allow delete: if isOwner(userId) && isValidId(debtId);
+      }
+
+      // Receivables subcollection
+      match /receivables/{receivableId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(receivableId) && isValidReceivable(incoming());
+        allow update: if isOwner(userId) && isValidId(receivableId) && isValidReceivable(incoming());
+        allow delete: if isOwner(userId) && isValidId(receivableId);
+      }
+
+      // Categories subcollection
+      match /categories/{categoryId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming());
+        allow update: if isOwner(userId) && isValidId(categoryId) && isValidCategory(incoming());
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+    }
+  }
+}

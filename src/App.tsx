@@ -11,11 +11,15 @@ import { OfflineBanner } from './components/common/OfflineBanner.tsx';
 import { ConnectionToasts } from './components/common/ConnectionToasts.tsx';
 import { OfflineStatusModal } from './components/common/OfflineStatusModal.tsx';
 import { BackupModal } from './components/common/BackupModal.tsx';
+import { MobileBottomNav } from './components/common/MobileBottomNav.tsx';
 import {
   DuePaymentAlertModal,
   calculateDiffDays,
 } from './components/common/DuePaymentAlertModal.tsx';
 import { DuePaymentFloatingAlert } from './components/common/DuePaymentFloatingAlert.tsx';
+import {
+  checkAndNotifyBackgroundPayments,
+} from './services/notificationService.ts';
 import { ArrowLeft, Menu } from 'lucide-react';
 
 // Modules
@@ -25,7 +29,7 @@ import { ExpenseModule } from './components/expense/ExpenseModule.tsx';
 import { PendingModule } from './components/pending/PendingModule.tsx';
 import { DebtsModule } from './components/debts/DebtsModule.tsx';
 import { ReceivablesModule } from './components/receivables/ReceivablesModule.tsx';
-import { ChartsModule } from './components/charts/ChartsModule.tsx';
+import { CalendarModule } from './components/calendar/CalendarModule.tsx';
 
 const AppContent: React.FC = () => {
   const { data, activeModule, setActiveModule, resetAllData } = useFinance();
@@ -97,6 +101,55 @@ const AppContent: React.FC = () => {
     }
   }, [dueCount, hasCheckedDueOnLoad]);
 
+  // Notificaciones del sistema/navegador cuando la aplicación está en segundo plano (minimizada o en otra pestaña)
+  useEffect(() => {
+    // 1. Registro del Service Worker para notificaciones en segundo plano
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Nota de Service Worker:', err);
+      });
+    }
+
+    // 2. Escuchar evento para abrir módulo de pendientes desde la notificación del sistema
+    const handleOpenPending = () => {
+      setActiveModule('pendientes');
+    };
+    window.addEventListener('tu-dinero:open-pending-module', handleOpenPending);
+
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'tu-dinero:open-pending-module') {
+        setActiveModule('pendientes');
+      }
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    }
+
+    // 3. Cuando la app pasa a segundo plano (se oculta o minimiza la pestaña/ventana)
+    const handleVisibilityChange = () => {
+      if (document.hidden && dueCount > 0) {
+        checkAndNotifyBackgroundPayments(data.expenses, data.debts, false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 4. Verificación periódica cada 30 minutos si la pestaña sigue viva en segundo plano
+    const interval = setInterval(() => {
+      if (document.hidden && dueCount > 0) {
+        checkAndNotifyBackgroundPayments(data.expenses, data.debts, false);
+      }
+    }, 30 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener('tu-dinero:open-pending-module', handleOpenPending);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [data.expenses, data.debts, dueCount, setActiveModule]);
+
   const getModuleTitle = () => {
     switch (activeModule) {
       case 'ingresos':
@@ -109,8 +162,8 @@ const AppContent: React.FC = () => {
         return 'Control de Deudas & Acreedores';
       case 'cobrar':
         return 'Cuentas por Cobrar & Clientes';
-      case 'graficos':
-        return 'Gráficos & Análisis Financiero';
+      case 'calendario':
+        return 'Calendario';
       default:
         return 'Inicio (Dashboard General)';
     }
@@ -137,8 +190,8 @@ const AppContent: React.FC = () => {
         return <DebtsModule />;
       case 'cobrar':
         return <ReceivablesModule />;
-      case 'graficos':
-        return <ChartsModule />;
+      case 'calendario':
+        return <CalendarModule />;
       default:
         return (
           <DashboardModule
@@ -167,31 +220,33 @@ const AppContent: React.FC = () => {
       {/* Main Content Layout */}
       <div className="flex-1 flex flex-col w-full">
         {/* Module Canvas with padding */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-16">
+        <main className="flex-1 p-2.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-16">
           {/* Submodule Header with Return to Inicio button if not on home */}
           {activeModule !== 'inicio' && (
-            <div className="mb-6 flex items-center justify-between gap-3 bg-[#1A1A1A] border border-neutral-800 rounded-2xl p-3.5 sm:px-5 shadow-lg">
-              <div className="flex items-center gap-3">
+            <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2 sm:gap-3 bg-[#1A1A1A] border border-neutral-800 rounded-2xl p-2.5 sm:p-3.5 sm:px-5 shadow-lg">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   onClick={() => setActiveModule('inicio')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold transition-colors cursor-pointer border border-neutral-700/60"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold transition-colors cursor-pointer border border-neutral-700/60 shrink-0"
                   title="Regresar a la pantalla de Inicio"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#FFD700]" />
-                  <span>Volver a Inicio</span>
+                  <span className="hidden xs:inline">Volver a Inicio</span>
+                  <span className="xs:hidden">Inicio</span>
                 </button>
                 <div className="h-4 w-px bg-neutral-700 hidden sm:block" />
-                <span className="text-xs sm:text-sm font-bold text-white">
+                <span className="text-xs sm:text-sm font-bold text-white truncate">
                   {getModuleTitle()}
                 </span>
               </div>
 
               <button
                 onClick={() => setMenuCompletoOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 text-[#FFD700] text-xs font-bold border border-yellow-500/30 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 text-[#FFD700] text-xs font-bold border border-yellow-500/30 transition-colors cursor-pointer shrink-0"
               >
                 <Menu className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Cambiar Módulo</span>
+                <span className="sm:hidden text-[11px]">Módulos</span>
               </button>
             </div>
           )}
@@ -202,6 +257,14 @@ const AppContent: React.FC = () => {
         {/* Mandatory Footer visible on ALL modules and screens */}
         <Footer />
       </div>
+
+      {/* Barra de Navegación Móvil Inferior Fija (Visible solo en pantallas móviles) */}
+      <MobileBottomNav
+        activeModule={activeModule}
+        onChangeModule={setActiveModule}
+        onOpenMenu={() => setMenuCompletoOpen(true)}
+        pendingCount={data.expenses.filter((e) => e.status === 'pendiente').length}
+      />
 
       {/* Shared Modals */}
       <ProfileModal

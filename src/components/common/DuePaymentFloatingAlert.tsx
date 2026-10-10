@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
-import { BellRing, ChevronRight, X, AlertTriangle, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BellRing, ChevronRight, X, AlertTriangle, Clock, Bell, Check } from 'lucide-react';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  sendTestNotification,
+} from '../../services/notificationService';
 
 interface DuePaymentFloatingAlertProps {
   dueCount: number;
@@ -15,13 +20,29 @@ export const DuePaymentFloatingAlert: React.FC<DuePaymentFloatingAlertProps> = (
   onOpenModal,
 }) => {
   const [dismissed, setDismissed] = useState(false);
+  const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
+  const [testSent, setTestSent] = useState(false);
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission());
+  }, []);
+
+  const handleEnableNotifications = async () => {
+    const res = await requestNotificationPermission();
+    setNotifPermission(res);
+    if (res === 'granted') {
+      setTestSent(true);
+      sendTestNotification();
+      setTimeout(() => setTestSent(false), 3500);
+    }
+  };
 
   if (dueCount === 0 || dismissed) return null;
 
   return (
     <aside
       aria-label="Alerta emergente de pagos pendientes por vencer"
-      className="fixed bottom-6 right-4 sm:right-6 z-40 max-w-sm w-[calc(100vw-2rem)] bg-gradient-to-r from-[#1E1E1E] via-[#1A1A1A] to-[#171717] border border-amber-500/50 rounded-2xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md"
+      className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 left-3 sm:left-auto z-40 max-w-sm bg-gradient-to-r from-[#1E1E1E] via-[#1A1A1A] to-[#171717] border border-amber-500/50 rounded-2xl p-3.5 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -62,6 +83,41 @@ export const DuePaymentFloatingAlert: React.FC<DuePaymentFloatingAlertProps> = (
         Tienes <strong className="text-amber-400 font-mono">{dueCount}</strong>{' '}
         {dueCount === 1 ? 'pago pendiente próximo' : 'pagos pendientes próximos'} a su fecha límite o vencidos.
       </p>
+
+      {/* Notificaciones del Sistema / Segundo Plano */}
+      <div className="mt-2.5 p-2 rounded-xl bg-[#121212] border border-neutral-800 text-[10px] flex items-center justify-between gap-2">
+        {notifPermission === 'granted' ? (
+          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Avisos en segundo plano activos</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleEnableNotifications}
+            className="flex items-center gap-1.5 text-amber-300 hover:text-amber-200 font-bold transition-colors cursor-pointer"
+          >
+            <Bell className="w-3 h-3" />
+            <span>Activar avisos del sistema (segundo plano)</span>
+          </button>
+        )}
+
+        {notifPermission === 'granted' && (
+          <button
+            type="button"
+            onClick={() => {
+              setTestSent(true);
+              sendTestNotification();
+              setTimeout(() => setTestSent(false), 3000);
+            }}
+            disabled={testSent}
+            className="px-2 py-0.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[9px] font-mono transition-colors cursor-pointer"
+            title="Probar notificación en tu sistema operativo"
+          >
+            {testSent ? '✓ Enviada' : 'Probar'}
+          </button>
+        )}
+      </div>
 
       <div className="mt-3 pt-2.5 border-t border-neutral-800/80 flex items-center justify-between gap-2">
         <button

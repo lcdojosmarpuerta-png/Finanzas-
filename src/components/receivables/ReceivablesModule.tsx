@@ -474,25 +474,26 @@ export const ReceivablesModule: React.FC = () => {
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
                         {/* WhatsApp Button */}
                         <button
                           onClick={() => sendWhatsAppReminder(item)}
-                          className="px-3 py-1.5 bg-[#25D366]/20 hover:bg-[#25D366]/30 text-[#25D366] border border-[#25D366]/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                          className="px-2.5 sm:px-3 py-1.5 bg-[#25D366]/20 hover:bg-[#25D366]/30 text-[#25D366] border border-[#25D366]/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                           title="Enviar cobro por WhatsApp"
                         >
                           <MessageCircle className="w-3.5 h-3.5 fill-[#25D366]/20" />
-                          <span>Notificar WhatsApp</span>
+                          <span className="hidden xs:inline">Notificar</span>
+                          <span>WhatsApp</span>
                         </button>
 
                         {/* Botón Cancelado/Pagado */}
                         {!isPaid && (
                           <button
                             onClick={() => setItemToPay(item)}
-                            className="px-3.5 py-1.5 bg-[#2ECC71] hover:bg-emerald-600 text-black font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5"
+                            className="px-2.5 sm:px-3.5 py-1.5 bg-[#2ECC71] hover:bg-emerald-600 text-black font-bold text-xs rounded-xl shadow transition-all flex items-center gap-1.5"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Cancelado / Pagado</span>
+                            <span>Cobrado</span>
                           </button>
                         )}
                       </div>

@@ -6,7 +6,7 @@ import {
   Clock,
   Landmark,
   HandCoins,
-  PieChart,
+  Calendar,
   Menu,
   X,
   Tag,
@@ -43,7 +43,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     { id: 'ingresos', label: 'Ingresos', icon: TrendingUp },
     { id: 'egresos', label: 'Egresos', icon: TrendingDown },
     { id: 'pendientes', label: 'Pendientes', icon: Clock, badge: pendingExpensesCount },
-    { id: 'graficos', label: 'Gráficos', icon: PieChart },
+    { id: 'calendario', label: 'Calendario', icon: Calendar },
   ];
 
   const allModules: {
@@ -58,7 +58,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     { id: 'pendientes', label: 'Gastos Pendientes', icon: Clock, badge: pendingExpensesCount },
     { id: 'deudas', label: 'Control de Deudas', icon: Landmark },
     { id: 'cobrar', label: 'Cuentas por Cobrar', icon: HandCoins, badge: pendingReceivablesCount },
-    { id: 'graficos', label: 'Gráficos e Indicadores', icon: PieChart },
+    { id: 'calendario', label: 'Calendario', icon: Calendar },
   ];
 
   const handleSelectModule = (id: ActiveModule) => {

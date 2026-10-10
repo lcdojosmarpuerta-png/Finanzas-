@@ -135,7 +135,7 @@ export const OfflineStatusModal: React.FC = () => {
               </div>
               <p className="text-xs text-neutral-300 mt-1 leading-relaxed">
                 {effectiveIsOnline
-                  ? 'El sistema está conectado a internet y sincronizado en tiempo real con las tasas oficiales.'
+                  ? 'El sistema está conectado a internet para consultar en tiempo real las tasas oficiales del BCV.'
                   : 'No hay conexión a internet disponible. Todos los datos están seguros y puedes consultar saldos, movimientos y emitir reportes normalmente.'}
               </p>
             </div>

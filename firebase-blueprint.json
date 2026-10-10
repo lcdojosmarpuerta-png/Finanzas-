@@ -1,0 +1,144 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and financial preferences in the cloud",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 100 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "accountType": { "type": "string", "enum": ["personal", "negocio", "empresa", "inversion", "otro"] },
+        "colorTag": { "type": "string", "maxLength": 20 },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "bcvRate": { "type": "number" },
+        "lastBcvUpdate": { "type": "string", "maxLength": 40 },
+        "activeProfileId": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["name", "title"]
+    },
+    "IncomeItem": {
+      "title": "IncomeItem",
+      "description": "Registered income record with deposit tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 200 },
+        "amountUSD": { "type": "number" },
+        "date": { "type": "string", "maxLength": 20 },
+        "categoryId": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["depositado", "pendiente"] },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "depositedAt": { "type": "string", "maxLength": 40 },
+        "bankAccount": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["description", "amountUSD", "date", "categoryId", "status"]
+    },
+    "ExpenseItem": {
+      "title": "ExpenseItem",
+      "description": "Registered expense or bill payment record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 200 },
+        "amountUSD": { "type": "number" },
+        "date": { "type": "string", "maxLength": 20 },
+        "dueDate": { "type": "string", "maxLength": 20 },
+        "categoryId": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["pagado", "pendiente"] },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "paidAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["description", "amountUSD", "date", "categoryId", "status"]
+    },
+    "DebtItem": {
+      "title": "DebtItem",
+      "description": "Debt or liability with installment payments tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 200 },
+        "creditor": { "type": "string", "maxLength": 150 },
+        "totalAmountUSD": { "type": "number" },
+        "date": { "type": "string", "maxLength": 20 },
+        "dueDate": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["activa", "pagada"] },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "paidAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["description", "creditor", "totalAmountUSD", "date", "status"]
+    },
+    "ReceivableItem": {
+      "title": "ReceivableItem",
+      "description": "Account receivable from a customer or debtor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "description": { "type": "string", "maxLength": 200 },
+        "clientName": { "type": "string", "maxLength": 150 },
+        "clientPhone": { "type": "string", "maxLength": 40 },
+        "amountUSD": { "type": "number" },
+        "date": { "type": "string", "maxLength": 20 },
+        "dueDate": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["pendiente", "pagado"] },
+        "paidAt": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["description", "clientName", "amountUSD", "date", "status"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Income or expense category classification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 80 },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "color": { "type": "string", "maxLength": 30 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "iconName": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["name", "type", "color"]
+    },
+    "ConnectionTest": {
+      "title": "ConnectionTest",
+      "description": "Probe document for connectivity validation",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "maxLength": 20 }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile preferences and global metadata"
+    },
+    "/users/{userId}/incomes/{incomeId}": {
+      "schema": "IncomeItem",
+      "description": "User income records"
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "ExpenseItem",
+      "description": "User expense records"
+    },
+    "/users/{userId}/debts/{debtId}": {
+      "schema": "DebtItem",
+      "description": "User debt and obligation records"
+    },
+    "/users/{userId}/receivables/{receivableId}": {
+      "schema": "ReceivableItem",
+      "description": "User accounts receivable records"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User custom and system categories"
+    },
+    "/test/{docId}": {
+      "schema": "ConnectionTest",
+      "description": "Test connection ping document"
+    }
+  }
+}

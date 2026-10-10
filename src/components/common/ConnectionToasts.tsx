@@ -23,7 +23,7 @@ export const ConnectionToasts: React.FC = () => {
       setVisibleToast({
         type: 'online',
         title: '¡Conexión Restablecida!',
-        message: 'El sistema ha recuperado la conexión a internet. Los datos están sincronizados en línea.',
+        message: 'El sistema ha recuperado la conexión a internet. Tasas oficiales BCV disponibles para consulta.',
       });
     }
 
@@ -40,7 +40,7 @@ export const ConnectionToasts: React.FC = () => {
   const isOffline = visibleToast.type === 'offline';
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 max-w-sm w-full animate-in slide-in-from-bottom-5 fade-in duration-300">
+    <div className="fixed bottom-20 sm:bottom-5 right-3 sm:right-5 left-3 sm:left-auto z-50 max-w-sm w-auto sm:w-full animate-in slide-in-from-bottom-5 fade-in duration-300">
       <div
         className={`p-4 rounded-2xl border shadow-2xl flex items-start gap-3 backdrop-blur-md ${
           isOffline
